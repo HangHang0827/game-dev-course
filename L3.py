@@ -24,7 +24,7 @@ while running:
     ship_x = max(0, min(WIDTH - 50, ship_x))
     ship_y = max(0, min(HEIGHT - 50, ship_y))
     
-    screen.fill((10, 10, 30))
+    screen.fill((10, 10, 30)) # Space black corner
     
     ship_points = [(ship_x + 25, ship_y), (ship_x, ship_y + 40), (ship_x + 15, ship_y + 25),
                    (ship_x + 35, ship_y + 25), (ship_x + 50, ship_y + 40)]
