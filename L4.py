@@ -132,7 +132,7 @@ def main():
 
             # --- AI Logic ---
             # AI tracks the ball's Y position but moves slightly slower to be beatable
-            ai_speed = 10 
+            ai_speed = 5 
             if ai.rect.centery < ball.rect.centery and ai.rect.bottom < HEIGHT:
                 ai.rect.y += ai_speed
             elif ai.rect.centery > ball.rect.centery and ai.rect.top > 0:
