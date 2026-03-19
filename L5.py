@@ -169,33 +169,45 @@ class Ball:
         self.base_speed = 6 * speed_multiplier
         self.dx = random.choice([-1, 1]) * self.base_speed
         self.dy = random.choice([-1, 1]) * self.base_speed
-        self.trail = []  # List to store the ball's previous positions
+        self.trail = []
+        self.delay_frames = 180  # 3 seconds at 60 FPS
 
     def draw(self, surface):
-        # Calculate the ball's actual current speed using a bit of math
-        current_speed = math.hypot(self.dx, self.dy)
-        
-        # Only draw the trail if the speed is high enough (e.g., > 10)
-        if current_speed > 10:
-            for i, pos in enumerate(self.trail):
-                # Calculate size and color so the trail fades out at the tail
-                ratio = i / len(self.trail)
-                radius = int(10 * ratio)  # Shrink older trail circles
-                color_intensity = int(200 * ratio) + 55 # Fade from light gray to dark gray
-                trail_color = (color_intensity, color_intensity, color_intensity)
-                
-                if radius > 0:
-                    pygame.draw.circle(surface, trail_color, pos, radius)
+        # Draw countdown if delayed
+        if self.delay_frames > 0:
+            seconds_left = (self.delay_frames // 60) + 1
+            countdown_text = small_font.render(str(seconds_left), True, WHITE)
+            text_rect = countdown_text.get_rect(center=(self.rect.centerx, self.rect.centery - 40))
+            surface.blit(countdown_text, text_rect)
+        else:
+            # Draw dynamic trail
+            current_speed = math.hypot(self.dx, self.dy)
+            if current_speed > 10:
+                trail_base_size = min(20, current_speed * 0.8)
+                for i, pos in enumerate(self.trail):
+                    ratio = i / len(self.trail)
+                    radius = int(trail_base_size * ratio)
+                    color_intensity = int(200 * ratio) + 55 
+                    trail_color = (color_intensity, color_intensity, color_intensity)
+                    
+                    if radius > 0:
+                        pygame.draw.circle(surface, trail_color, pos, radius)
 
-        # Draw the actual ball on top of the trail
+        # Draw the actual ball on top
         pygame.draw.ellipse(surface, WHITE, self.rect)
 
     def move(self):
-        # Save the current center position before moving
+        # Countdown logic
+        if self.delay_frames > 0:
+            self.delay_frames -= 1
+            return 
+
         self.trail.append(self.rect.center)
         
-        # Keep the trail at a maximum of 8 frames long
-        if len(self.trail) > 8:
+        current_speed = math.hypot(self.dx, self.dy)
+        max_trail_length = min(16, int(current_speed * 0.9))
+        
+        while len(self.trail) > max_trail_length:
             self.trail.pop(0)
 
         self.rect.x += self.dx
@@ -205,12 +217,15 @@ class Ball:
         self.rect.center = (WIDTH // 2, HEIGHT // 2)
         self.dx = random.choice([-1, 1]) * self.base_speed
         self.dy = random.choice([-1, 1]) * self.base_speed
-        self.trail.clear()  # Clear the trail so it doesn't streak across the screen on reset
+        self.trail.clear()
+        self.delay_frames = 180
+
 # --- 5. Background Menu Match Functions ---
 def create_menu_elements():
     paddle_left = Paddle(30, HEIGHT//2 - 50, is_player_controlled=False)
     paddle_right = Paddle(WIDTH - 45, HEIGHT//2 - 50, is_player_controlled=False)
     ball = Ball(speed_multiplier=0.8) 
+    ball.delay_frames = 0  # Force the menu ball to start moving immediately!
     particles = []
     return paddle_left, paddle_right, ball, particles
 
@@ -254,6 +269,7 @@ def update_menu_elements(paddle_left, paddle_right, ball, particles):
         exit_x = 0 if ball.rect.left <= -50 else WIDTH
         particles.extend(create_particles(exit_x, ball.rect.centery, [ORANGE, RED], 15, 3, 6))
         ball.reset()
+        ball.delay_frames = 0  # Keep the menu ball moving immediately after a reset!
 
 def draw_menu_scene(surface, paddle_left, paddle_right, ball, particles):
     bg_surface = pygame.Surface((WIDTH, HEIGHT))
@@ -367,7 +383,6 @@ def main():
                     reset_match()
                     state = "PLAYING"
                 if p2_btn.is_clicked(event):
-                    # Go to Color Select menu instead of right to Playing
                     state = "COLOR_SELECT"
                 if endless_btn.is_clicked(event):
                     game_mode = "ENDLESS"
@@ -579,7 +594,6 @@ def main():
             keys = pygame.key.get_pressed()
             
             # --- Dynamic Colors ---
-            # Use chosen colors for 2-Player, otherwise default to WHITE
             p1_color = AVAILABLE_COLORS[p1_color_idx] if game_mode == "2_PLAYER" else WHITE
             p2_color = AVAILABLE_COLORS[p2_color_idx] if game_mode == "2_PLAYER" else WHITE
             
@@ -588,7 +602,9 @@ def main():
                 ai.move_player(keys[pygame.K_UP], keys[pygame.K_DOWN]) 
             else:
                 player.move_player(keys[pygame.K_w] or keys[pygame.K_UP], keys[pygame.K_s] or keys[pygame.K_DOWN])
-                ai.move_ai(ball.rect.centery) 
+                # Only let the AI move if the ball isn't paused!
+                if ball.delay_frames == 0:
+                    ai.move_ai(ball.rect.centery) 
 
             ball.move()
 
@@ -597,7 +613,7 @@ def main():
                 ball.dy *= -1
                 playing_particles.extend(create_particles(ball.rect.centerx, ball.rect.centery, GRAY, 5, 2, 4))
 
-            # Paddle collisions (Using selected colors!)
+            # Paddle collisions
             if ball.rect.colliderect(player.rect) and ball.dx < 0:
                 ball.dx *= -1.1 
                 ball.dy += player.velocity * 0.15 
@@ -675,7 +691,7 @@ def main():
                 lives_text = tiny_font.render(f"Lives: {5 - ai_score}", True, RED)
                 screen.blit(lives_text, (20, 20))
 
-            # Draw the paddles with selected colors
+            # Draw the paddles and ball
             player.draw(screen, p1_color)
             ai.draw(screen, p2_color)
             ball.draw(screen)
